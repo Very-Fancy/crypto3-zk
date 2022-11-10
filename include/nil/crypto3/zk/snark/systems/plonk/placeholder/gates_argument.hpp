@@ -48,11 +48,11 @@ namespace nil {
     namespace crypto3 {
         namespace zk {
             namespace snark {
-                template<typename FieldType, typename ParamsType, std::size_t ArgumentSize = 1>
+                template<typename FieldType, typename ParamsType, typename ComponentType, std::size_t ArgumentSize = 1>
                 struct placeholder_gates_argument;
 
-                template<typename FieldType, typename ParamsType>
-                struct placeholder_gates_argument<FieldType, ParamsType, 1> {
+                template<typename FieldType, typename ParamsType, typename ComponentType>
+                struct placeholder_gates_argument<FieldType, ParamsType, ComponentType, 1> {
 
                     typedef typename ParamsType::transcript_hash_type transcript_hash_type;
                     using transcript_type = transcript::fiat_shamir_heuristic_sequential<transcript_hash_type>;
@@ -77,24 +77,34 @@ namespace nil {
 
                         typename FieldType::value_type theta_acc = FieldType::value_type::one();
 
-                        const std::vector<plonk_gate<FieldType, plonk_constraint<FieldType>>> gates =
-                            constraint_system.gates();
+                        //                        const std::vector<plonk_gate<FieldType, plonk_constraint<FieldType>>>
+                        //                        gates =
+                        //                            constraint_system.gates();
 
-                        for (std::size_t i = 0; i < gates.size(); i++) {
-                            math::polynomial_dfs<typename FieldType::value_type> gate_result(
-                                0, domain->m, FieldType::value_type::zero());
-
-                            for (std::size_t j = 0; j < gates[i].constraints.size(); j++) {
-                                gate_result = gate_result +
-                                              gates[i].constraints[j].evaluate(column_polynomials, domain) * theta_acc;
-                                theta_acc *= theta;
-                            }
-
-                            gate_result = gate_result * column_polynomials.selector(gates[i].selector_index);
-
-                            F[0] = F[0] + math::polynomial<typename FieldType::value_type>(gate_result.coefficients());
-                        }
-
+                        //                        for (std::size_t i = 0; i < gates.size(); i++) {
+                        //                            math::polynomial_dfs<typename FieldType::value_type> gate_result(
+                        //                                0, domain->m, FieldType::value_type::zero());
+                        //
+                        //                            for (std::size_t j = 0; j < gates[i].constraints.size(); j++) {
+                        //                                gate_result = gate_result +
+                        //                                              gates[i].constraints[j].evaluate(column_polynomials,
+                        //                                              domain) * theta_acc;
+                        //                                theta_acc *= theta;
+                        //                            }
+                        //
+                        //                            gate_result = gate_result *
+                        //                            column_polynomials.selector(gates[i].selector_index);
+                        //
+                        //                            F[0] = F[0] + math::polynomial<typename
+                        //                            FieldType::value_type>(gate_result.coefficients());
+                        //                        }
+                        std::vector<math::polynomial_dfs<typename FieldType::value_type>> gates_results =
+                            ComponentType::evaluate_gates(column_polynomials.private_table().witnesses(), theta);
+                        auto gate_result = gates_results[0] * column_polynomials.selector(0);
+                        //
+                        //  for (std::size_t i = 0; i < gates_results.size(); i++){
+                        F[0] = F[0] + math::polynomial<typename FieldType::value_type>(gate_result.coefficients());
+                        //  }
                         return F;
                     }
 
@@ -108,20 +118,21 @@ namespace nil {
                         std::array<typename FieldType::value_type, argument_size> F;
 
                         typename FieldType::value_type theta_acc = FieldType::value_type::one();
+                        std::array<typename plonk_variable<FieldType>::assignment_type, 11> evaluation_values;
+                        for (std::size_t i = 0; i < 11; i++) {
+                            std::tuple<std::size_t, int, typename plonk_variable<FieldType>::column_type> key =
+                                std::make_tuple(i, 0, plonk_variable<FieldType>::column_type::witness);
+                            evaluation_values[i] = evaluations[key];
+                        }
 
-                        for (std::size_t i = 0; i < gates.size(); i++) {
-                            typename FieldType::value_type gate_result = {0};
-
-                            for (std::size_t j = 0; j < gates[i].constraints.size(); j++) {
-                                gate_result = gate_result + gates[i].constraints[j].evaluate(evaluations) * theta_acc;
-                                theta_acc *= theta;
-                            }
-
-                            std::tuple<std::size_t, int, typename plonk_variable<FieldType>::column_type> selector_key =
-                                std::make_tuple(gates[i].selector_index, 0,
-                                                plonk_variable<FieldType>::column_type::selector);
-
-                            gate_result = gate_result * evaluations[selector_key];
+                        std::tuple<std::size_t, int, typename plonk_variable<FieldType>::column_type> selector_key =
+                            std::make_tuple(0, 0, plonk_variable<FieldType>::column_type::selector);
+                        std::vector<typename plonk_variable<FieldType>::assignment_type> gates_results =
+                            ComponentType::evaluate_gates(evaluation_values, theta);
+                        auto gate_result = gates_results[0] * evaluations[selector_key];
+                        F[0] = F[0] + gate_result;
+                        for (std::size_t i = 1; i < gates_results.size(); i++) {
+                            gate_result = (gate_result + gates_results[i]) * evaluations[selector_key];
 
                             F[0] = F[0] + gate_result;
                         }

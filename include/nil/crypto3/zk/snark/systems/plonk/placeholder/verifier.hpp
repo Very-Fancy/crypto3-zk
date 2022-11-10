@@ -41,7 +41,7 @@ namespace nil {
     namespace crypto3 {
         namespace zk {
             namespace snark {
-                template<typename FieldType, typename ParamsType>
+                template<typename FieldType, typename ParamsType, typename ComponentType>
                 class placeholder_verifier {
 
                     constexpr static const std::size_t witness_columns = ParamsType::witness_columns;
@@ -62,7 +62,7 @@ namespace nil {
                         typename ParamsType::fixed_values_commitment_scheme_type;
                     using variable_values_commitment_scheme_type = typename ParamsType::variable_values_commitment_scheme_type;
                     using runtime_size_commitment_scheme_type = typename ParamsType::runtime_size_commitment_scheme_type;
-                    
+
                     using permutation_commitment_scheme_type = typename ParamsType::permutation_commitment_scheme_type;
                     using quotient_commitment_scheme_type = typename ParamsType::quotient_commitment_scheme_type;
 
@@ -204,7 +204,7 @@ namespace nil {
 
                         // 7. gate argument
                         std::array<typename FieldType::value_type, 1> gate_argument =
-                            placeholder_gates_argument<FieldType, ParamsType>::verify_eval(
+                            placeholder_gates_argument<FieldType, ParamsType, ComponentType>::verify_eval(
                                 constraint_system.gates(), columns_at_y, proof.eval_proof.challenge, transcript);
 
                         // 8. alphas computations
